@@ -14,7 +14,8 @@ enum main_err {
 	EM_DIRCREATE,
 	EM_DIROPEN,
 	EM_ALLOC,
-	EM_QUERY
+	EM_QUERY,
+	EM_NODATA
 };
 
 static char *errmsg[] = {
@@ -29,7 +30,8 @@ static char *errmsg[] = {
  [EM_DIRCREATE] = "Error: Could not create directory\n",
  [EM_DIROPEN] = "Error: Could not open directory\n",
  [EM_ALLOC] = "Critical: Could not allocate memory\n",
- [EM_QUERY] = "Error: Wrong query specified. See -qhelp for details\n"
+ [EM_QUERY] = "Error: Wrong query specified. See -qhelp for details\n",
+ [EM_NODATA] = "Error: Not avaiable data about person. See -qhelp for details\n"
 };
 
 static char *qhelp_docstring = (
@@ -65,14 +67,20 @@ static char *query_name[] = {
  [Q_HELP] = "help"
 };
 
-static struct dbitem make_item(const char *str)
+static int make_item(const char *str, struct dbitem *ret)
 {
-	struct dbitem ret = {0};
+	enum main_err err_level = EM_OK;
+	if(NULL == str) {
+		err_level = EM_NODATA;
+		return err_level;
+	}
+	
+	memset(ret, 0, sizeof(struct dbitem));
 	/* See expaination of how it works in main */
 	/* ord: last -> first -> email	*/
 	char *bkp, *ptr, *last_name, *first_name, *email, *date;
 	bkp = ptr = last_name = first_name = email = date = strdup(str);	/* need it mutable */
-
+	
 	strsep(&ptr, ";");
 	first_name = ptr;
 	strsep(&ptr, ";");
@@ -89,17 +97,17 @@ static struct dbitem make_item(const char *str)
 	unsigned int dd, mm, yyyy;
 	if ((date != NULL) && sscanf(date, "%u.%u.%u", &dd, &mm, &yyyy) == 3) {
 		/* ret.birth_date is a bitfield, &operator unusable */
-		ret.birth_date.day = dd;
-		ret.birth_date.month = mm;
-		ret.birth_date.year = yyyy;
+		ret->birth_date.day = dd;
+		ret->birth_date.month = mm;
+		ret->birth_date.year = yyyy;
 	}
 
-	strcpy(ret.last_name, last_name);
-	strcpy(ret.first_name, first_name);
-	strcpy(ret.email, email);
+	strcpy(ret->last_name, last_name);
+	strcpy(ret->first_name, first_name);
+	strcpy(ret->email, email);
 	
 	free(bkp);	/* strdup calls malloc, so need to free mem */
-	return ret;
+	return err_level;
 }
 
 /* Put version here. A good thing to do is to make it depend on git versioning.
@@ -288,9 +296,13 @@ int main(int argc, char *argv[]) {
 			free(fname);
 			break;
 		case Q_ADD:;
-			struct dbitem item = make_item(qval);
-			char *fn = m_strjoin("/", args.dir, item.key);
-			if ((lerr = item_write(fn, &item)) != E_OK) {
+			struct dbitem *item = malloc(sizeof(struct dbitem));
+			if ((lerr = make_item(qval, item)) != E_OK) {
+				free(item);
+				err_exit(args.isquiet, lerr);
+			}			
+			char *fn = m_strjoin("/", args.dir, item->key);
+			if ((lerr = item_write(fn, item)) != E_OK) {
 				free(fn);
 				err_exit(args.isquiet, lerr);
 			}
