@@ -125,9 +125,10 @@ enum err listdir(const char *dirname, struct strvec *vector)
 		errlevel = E_OSERR;
 
 	cleanup_item_listdir:
-	while (n--)
-		free(namelist[n]);
-
+	if(n > 0) {
+		while (n--)
+			free(namelist[n]);
+	}
 	free(namelist);
 	return errlevel;
 }

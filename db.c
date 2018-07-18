@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
 			if ((lerr = make_item(qval, item)) != E_OK) {
 				free(item);
 				err_exit(args.isquiet, lerr);
-			}			
+			}
 			char *fn = m_strjoin("/", args.dir, item->key);
 			if ((lerr = item_write(fn, item)) != E_OK) {
 				free(fn);
